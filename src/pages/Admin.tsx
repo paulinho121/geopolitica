@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Settings, Globe, Trash2, RefreshCcw, ExternalLink } from 'lucide-react';
+import { Settings, Globe, Trash2, RefreshCcw, ExternalLink, Key } from 'lucide-react';
 
 interface Post {
   id: number;
@@ -27,6 +27,14 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
+  const [generatedKey, setGeneratedKey] = useState<string>('sua-chave-secreta');
+
+  const handleGenerateKey = () => {
+    const array = new Uint8Array(16);
+    window.crypto.getRandomValues(array);
+    const keyStr = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    setGeneratedKey(`gpnews_${keyStr}`);
+  };
 
   useEffect(() => {
     fetchData();
@@ -236,26 +244,46 @@ export default function Admin() {
                   </div>
 
                   <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 relative">
-                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      2. Header de Autenticação (Chave de Segurança)
+                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
+                      <Key className="w-4 h-4" /> 2. Header de Autenticação (Chave de API)
                     </label>
-                    <p className="text-sm text-gray-500 mb-3">Copie esse texto exato e cole lá para autorizar as postagens no seu site.</p>
-                    <div className="flex mt-1 relative">
-                      <input
-                        readOnly
-                        value="X-API-Key: sua-chave-secreta"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white p-3 font-mono text-green-700 font-medium"
-                      />
+                    <p className="text-sm text-gray-500 mb-3">Copie esse texto exato e cole na plataforma externa para autorizar as postagens no seu site.</p>
+                    <div className="flex mt-1 relative items-center gap-3">
+                      <div className="flex-1">
+                        <input
+                          readOnly
+                          value={`X-API-Key: ${generatedKey}`}
+                          className="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm bg-white p-3 font-mono text-green-700 font-medium border focus:border-blue-500 focus:ring-blue-500"
+                        />
+                      </div>
+                      <button
+                        onClick={handleGenerateKey}
+                        className="inline-flex items-center justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        title="Gerar uma nova chave aleatória mais segura"
+                      >
+                        <RefreshCcw className="w-4 h-4 mr-2" />
+                        Gerar Segura
+                      </button>
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText('X-API-Key: sua-chave-secreta');
-                          alert('Chave de API copiada!');
+                          navigator.clipboard.writeText(`X-API-Key: ${generatedKey}`);
+                          alert('Chave de API copiada! Lembre-se de adicionar ' + generatedKey + ' nas configurações do Vercel.');
                         }}
-                        className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="inline-flex justify-center py-2 px-4 shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         Copiar
                       </button>
                     </div>
+                    
+                    {generatedKey !== 'sua-chave-secreta' && (
+                      <div className="mt-4 p-4 bg-yellow-50 text-yellow-800 text-sm rounded-md border border-yellow-200">
+                        <strong>⚠️ Aviso Importante:</strong> Como você gerou uma chave personalizada mais segura, o seu servidor precisa saber dela! Vá no painel do <strong>Vercel</strong> (Settings &gt; Environment Variables) e crie uma variável exatamente assim:
+                        <div className="mt-2 bg-white p-3 rounded border border-yellow-300 font-mono text-xs">
+                          Name: <strong>WEBHOOK_API_KEY</strong> <br/>
+                          Value: <strong>{generatedKey}</strong>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
