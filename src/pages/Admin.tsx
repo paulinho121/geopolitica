@@ -197,85 +197,80 @@ export default function Admin() {
           )}
 
           {activeTab === 'settings' && (
-            <div className="max-w-2xl mx-auto">
-              {message && (
-                <div className={`mb-6 p-4 rounded border ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                  {message.text}
-                </div>
-              )}
-              
-              <div className="bg-[#0f111a] p-6 rounded-xl text-white shadow-xl relative overflow-hidden">
-                <div className="flex items-center gap-3 mb-2">
-                  <Globe className="w-6 h-6 text-blue-400" />
-                  <h2 className="text-xl font-bold">Configurar Site Externo (PHP/API)</h2>
-                </div>
-                <p className="text-gray-400 text-sm mb-6">Insira suas credenciais de API para conectar ao Site Externo (PHP/API)</p>
-
-                <form onSubmit={handleSaveSettings} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-1">
-                      Webhook para Notificação
-                    </label>
-                    <input
-                      type="url"
-                      value={settings.webhookUrl}
-                      onChange={e => setSettings({...settings, webhookUrl: e.target.value})}
-                      placeholder="https://seu-site.com/api/webhook.php"
-                      className="w-full bg-[#1a1d27] border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+            <div className="max-w-3xl mx-auto">
+              <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-blue-100 p-3 rounded-lg">
+                    <Globe className="w-8 h-8 text-blue-700" />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-1">
-                      Header de Autenticação (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.authHeader}
-                      onChange={e => setSettings({...settings, authHeader: e.target.value})}
-                      placeholder="X-API-Key: sua-chave"
-                      className="w-full bg-[#1a1d27] border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                    />
+                    <h2 className="text-2xl font-bold text-gray-900">Integração Externa (Sua API)</h2>
+                    <p className="text-gray-500 mt-1">
+                      Forneça estes dados exatos na sua plataforma de postagem automática para que ela envie notícias para cá.
+                    </p>
                   </div>
+                </div>
 
-                  <div className="bg-[#1a1d27] border border-gray-700 rounded-lg p-4 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-white font-medium">Publicação Automática</h3>
-                      <p className="text-gray-400 text-sm">Publicar posts automaticamente nesta plataforma</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={settings.autoPublish}
-                        onChange={e => setSettings({...settings, autoPublish: e.target.checked})}
+                <div className="space-y-8">
+                  <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 relative">
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
+                      1. Webhook para Notificação (URL)
+                    </label>
+                    <p className="text-sm text-gray-500 mb-3">Copie essa URL e cole no campo "Webhook para Notificação" da plataforma externa.</p>
+                    <div className="flex mt-1 relative">
+                      <input
+                        readOnly
+                        value={`${window.location.origin}/api/webhook`}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white p-3 font-mono text-blue-700 font-medium"
                       />
-                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 mt-6 border-t border-gray-800">
-                    <button type="button" className="text-gray-400 hover:text-white flex items-center gap-2 text-sm transition-colors text-blue-400 hover:text-blue-300">
-                      <ExternalLink className="w-4 h-4" /> Ver Documentação
-                    </button>
-                    <div className="flex gap-3">
-                      <button 
-                        type="button" 
-                        onClick={() => fetchData()}
-                        className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/api/webhook`);
+                          alert('URL do Webhook copiada!');
+                        }}
+                        className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
-                        Cancelar
-                      </button>
-                      <button 
-                        type="submit" 
-                        disabled={saving}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0f111a] focus:ring-blue-500 disabled:opacity-50"
-                      >
-                        {saving ? 'Salvando...' : 'Salvar'}
+                        Copiar
                       </button>
                     </div>
                   </div>
-                </form>
+
+                  <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 relative">
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
+                      2. Header de Autenticação (Chave de Segurança)
+                    </label>
+                    <p className="text-sm text-gray-500 mb-3">Copie esse texto exato e cole lá para autorizar as postagens no seu site.</p>
+                    <div className="flex mt-1 relative">
+                      <input
+                        readOnly
+                        value="X-API-Key: sua-chave-secreta"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white p-3 font-mono text-green-700 font-medium"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText('X-API-Key: sua-chave-secreta');
+                          alert('Chave de API copiada!');
+                        }}
+                        className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 bg-blue-50 p-6 rounded-lg text-sm text-blue-800 border border-blue-100">
+                  <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+                    <RefreshCcw className="w-5 h-5" />
+                    Como funciona?
+                  </h3>
+                  <p className="mb-2">A plataforma de postagem automatizada (Ex: Labnews/Vercel) precisa saber <strong>onde aplicar o texto gerado</strong> e provar que <strong>tem permissão</strong> para isso.</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Sempre que uma inteligência artificial terminar de escrever um texto, ela chamará sua URL acima.</li>
+                    <li>O seu site filtrará a chamada checando se ela contém exatamente <code>X-API-Key: sua-chave-secreta</code>.</li>
+                    <li>Se sim, seu site cria a postagem instantaneamente no banco de dados. Se não, a tentativa é classificada como bloqueada.</li>
+                  </ul>
+                </div>
               </div>
             </div>
           )}
