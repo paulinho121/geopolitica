@@ -1,0 +1,5 @@
+{
+  "name": "GlobalPulse News",
+  "description": "A professional international news portal with automated publishing via webhook.",
+  "requestFramePermissions": []
+}
