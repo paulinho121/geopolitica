@@ -79,7 +79,10 @@ export default async function handler(req: any, res: any) {
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
   if (!supabaseUrl || !supabaseKey) {
-    return res.status(500).json({ error: 'Supabase credentials missing' });
+    return res.status(500).json({ 
+      error: 'Configuração Incompleta', 
+      details: 'As variáveis VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY não foram encontradas no ambiente do Vercel.' 
+    });
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -102,11 +105,22 @@ export default async function handler(req: any, res: any) {
       .select('slug')
       .single();
 
-    if (error) throw error;
+    if (error) {
+       console.error('Supabase error:', error);
+       return res.status(500).json({ 
+         error: 'Erro no Supabase', 
+         details: error.message,
+         code: error.code,
+         hint: error.hint
+       });
+    }
 
     return res.status(200).json({ status: 'success', slug: data.slug });
   } catch (err: any) {
-    console.error('Webhook Error:', err);
-    return res.status(500).json({ error: 'Failed to process news', details: err.message });
+    console.error('Webhook Unexpected Error:', err);
+    return res.status(500).json({ 
+      error: 'Erro Inesperado', 
+      details: err.message 
+    });
   }
 }
