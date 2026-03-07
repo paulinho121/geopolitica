@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Settings, Globe, Trash2, RefreshCcw, ExternalLink, Key } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface Post {
   id: number;
@@ -18,6 +19,15 @@ interface ApiSettings {
   incomingWebhookKey: string;
   supabaseFunctionUrl?: string;
 }
+
+// Helper to map Supabase 'noticias' table fields to UI 'Post' interface
+const mapNoticiaToPost = (noticia: any): Post => ({
+  id: noticia.id,
+  title: noticia.titulo,
+  category: noticia.categoria || 'Sem Categoria',
+  created_at: noticia.created_at,
+  views: noticia.views || 0
+});
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<'posts' | 'settings'>('posts');
@@ -39,10 +49,8 @@ export default function Admin() {
     setTesting(true);
     setMessage(null);
     try {
-      // Use the public URL if provided, otherwise fallback to current origin
-      const baseUrl = settings.publicUrl || window.location.origin;
-      // The new endpoint we created in server.ts
-      const testUrl = `${baseUrl}/api/webhook-news`;
+      // Use the Supabase Function URL if provided, otherwise fallback to local
+      const testUrl = settings.supabaseFunctionUrl || `${window.location.origin}/api/webhook-news`;
       
       const payload = {
         event: "post_created",
@@ -71,7 +79,7 @@ export default function Admin() {
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
         console.error('Non-JSON response:', text);
-        throw new Error(`Servidor retornou erro inesperado (HTML/Texto). Verifique se o backend está rodando.`);
+        throw new Error(`O endpoint retornou erro (HTML/Texto). Verifique se o Link da Função está correto.`);
       }
 
       const responseData = await res.json();
@@ -81,7 +89,7 @@ export default function Admin() {
       }
 
       setMessage({ type: 'success', text: 'Conexão confirmada! Notícia de teste inserida com sucesso.' });
-      fetchData(); // Refresh list
+      setTimeout(fetchData, 1000); // Refresh list
     } catch (err: any) {
       setMessage({ type: 'error', text: `Erro de conexão: ${err.message}` });
     } finally {
@@ -103,24 +111,47 @@ export default function Admin() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [postsRes, settingsRes] = await Promise.all([
-        fetch('/api/posts?limit=50'),
-        fetch('/api/settings')
-      ]);
-      const postsData = await postsRes.json();
-      const settingsData = await settingsRes.json();
+      // 1. Fetch Posts from Supabase
+      const { data: postsData, error: postsError } = await supabase
+        .from('noticias')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
       
-      setPosts(postsData.posts || []);
-      setSettings({
-        webhookUrl: settingsData.webhookUrl || '',
-        authHeader: settingsData.authHeader || '',
-        autoPublish: settingsData.autoPublish === true || settingsData.autoPublish === 'true',
-        publicUrl: settingsData.publicUrl || '',
-        incomingWebhookKey: settingsData.incomingWebhookKey || 'sua-chave-secreta',
-        supabaseFunctionUrl: settingsData.supabaseFunctionUrl || ''
-      });
-    } catch (err) {
-      console.error('Failed to fetch data', err);
+      if (postsError) throw postsError;
+
+      // 2. Fetch Settings from Supabase
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('settings')
+        .select('key, value');
+      
+      if (settingsError) {
+        console.warn('Could not fetch settings from Supabase, they might not exist yet.');
+      }
+      
+      const mappedPosts = (postsData || []).map(mapNoticiaToPost);
+      setPosts(mappedPosts);
+
+      if (settingsData) {
+        const s = settingsData.reduce((acc: any, row: any) => {
+          acc[row.key] = row.value === 'true' ? true : row.value === 'false' ? false : row.value;
+          return acc;
+        }, {});
+
+        setSettings(prev => ({
+          ...prev,
+          webhookUrl: s.webhookUrl || '',
+          authHeader: s.authHeader || '',
+          autoPublish: s.autoPublish === true || s.autoPublish === 'true',
+          publicUrl: s.publicUrl || '',
+          incomingWebhookKey: s.incomingWebhookKey || 'sua-chave-secreta',
+          supabaseFunctionUrl: s.supabaseFunctionUrl || ''
+        }));
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch data from Supabase:', err);
+      // Fallback for dev/local or before schema applied
+      setMessage({ type: 'error', text: 'Erro ao conectar com Supabase. Verifique se as tabelas foram criadas.' });
     } finally {
       setLoading(false);
     }
@@ -131,18 +162,19 @@ export default function Admin() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      });
+      // Batch upsert to Supabase
+      const settingsToSave = Object.entries(settings).map(([key, value]) => ({
+        key,
+        value: String(value)
+      }));
+
+      const { error } = await supabase
+        .from('settings')
+        .upsert(settingsToSave, { onConflict: 'key' });
+
+      if (error) throw error;
       
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.details || `Erro do Servidor (${res.status})`);
-      }
-      
-      setMessage({ type: 'success', text: 'Configurações salvas com sucesso!' });
+      setMessage({ type: 'success', text: 'Configurações salvas no Supabase com sucesso!' });
     } catch (err: any) {
       setMessage({ type: 'error', text: `Erro ao salvar: ${err.message}` });
     } finally {
@@ -153,22 +185,23 @@ export default function Admin() {
   const handleDeletePost = async (id: number) => {
     if (!confirm('Tem certeza que deseja excluir esta notícia?')) return;
     try {
-      const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase
+        .from('noticias')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
       setPosts(posts.filter(p => p.id !== id));
-    } catch (err) {
-      alert('Erro ao excluir notícia.');
+    } catch (err: any) {
+      alert(`Erro ao excluir: ${err.message}`);
     }
   };
 
   const handleSyncPost = async (id: number) => {
     try {
-      const res = await fetch(`/api/posts/${id}/sync`, { method: 'POST' });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to sync');
-      }
-      alert('Notícia sincronizada com sucesso!');
+      // In Supabase mode, the local proxy sync doesn't make sense unless we have a target
+      // For now, let's keep it restricted or alert it's direct to DB now
+      alert('Modo Supabase Ativo: Notícias são sincronizadas diretamente no banco.');
     } catch (err: any) {
       alert(`Erro na sincronização: ${err.message}`);
     }

@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import AdSpace from '../components/AdSpace';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { supabase, mapNoticia } from '../lib/supabase';
 
 export default function Home() {
   const [featured, setFeatured] = useState<any>(null);
@@ -12,23 +13,48 @@ export default function Home() {
   const [categoryPosts, setCategoryPosts] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
-    fetch('/api/posts?limit=7')
-      .then(res => res.json())
-      .then(data => {
-        if (data.posts.length > 0) {
-          setFeatured(data.posts[0]);
-          setGridPosts(data.posts.slice(1, 7));
-        }
-      });
+    // 1. Fetch Latest Posts
+    const fetchLatest = async () => {
+      const { data, error } = await supabase
+        .from('noticias')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(7);
+      
+      if (error) {
+        console.error('Error fetching latest from Supabase:', error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        const mapped = data.map(mapNoticia);
+        setFeatured(mapped[0]);
+        setGridPosts(mapped.slice(1, 7));
+      }
+    };
 
-    const categories = ['Política', 'Geopolítica', 'Economia', 'Tecnologia'];
-    categories.forEach(cat => {
-      fetch(`/api/posts?category=${encodeURIComponent(cat)}&limit=3`)
-        .then(res => res.json())
-        .then(data => {
-          setCategoryPosts(prev => ({ ...prev, [cat]: data.posts }));
-        });
-    });
+    // 2. Fetch Category Posts
+    const fetchByCategories = async () => {
+      const categories = ['Política', 'Geopolítica', 'Economia', 'Tecnologia'];
+      const results: Record<string, any[]> = {};
+      
+      for (const cat of categories) {
+        const { data, error } = await supabase
+          .from('noticias')
+          .select('*')
+          .eq('categoria', cat)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        
+        if (data) {
+          results[cat] = data.map(mapNoticia);
+        }
+      }
+      setCategoryPosts(results);
+    };
+
+    fetchLatest();
+    fetchByCategories();
   }, []);
 
   return (

@@ -85,4 +85,18 @@ CREATE POLICY "Atualização via Webhook" ON public.noticias FOR UPDATE USING (t
 -- Índices para 'noticias'
 CREATE INDEX IF NOT EXISTS noticias_slug_idx ON public.noticias (slug);
 CREATE INDEX IF NOT EXISTS noticias_external_id_idx ON public.noticias (id_externo);
-CREATE INDEX IF NOT EXISTS noticias_search_idx ON public.noticias USING GIN (to_tsvector('portuguese', titulo || ' ' || conteudo_html));
+-- 7. Tabela de Configurações do Sistema (Settings)
+CREATE TABLE IF NOT EXISTS public.settings (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Habilitar RLS para 'settings'
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para 'settings'
+-- Leitura pública para que o frontend possa carregar as configurações
+CREATE POLICY "Leitura Pública de Settings" ON public.settings FOR SELECT USING (true);
+-- Inserção/Atualização simplificada (Em produção, idealmente usar Supabase Auth)
+CREATE POLICY "Gerenciamento de Settings" ON public.settings FOR ALL USING (true);

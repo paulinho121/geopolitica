@@ -4,19 +4,33 @@ import { TrendingUp, Clock, Mail } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import AdSpace from './AdSpace';
+import { supabase, mapNoticia } from '../lib/supabase';
 
 export default function Sidebar() {
   const [trending, setTrending] = useState<any[]>([]);
   const [latest, setLatest] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/posts?limit=5&sort=views')
-      .then(res => res.json())
-      .then(data => setTrending(data.posts));
+    const fetchTrending = async () => {
+      const { data } = await supabase
+        .from('noticias')
+        .select('*')
+        .order('views', { ascending: false })
+        .limit(5);
+      if (data) setTrending(data.map(mapNoticia));
+    };
 
-    fetch('/api/posts?limit=5')
-      .then(res => res.json())
-      .then(data => setLatest(data.posts));
+    const fetchLatest = async () => {
+      const { data } = await supabase
+        .from('noticias')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (data) setLatest(data.map(mapNoticia));
+    };
+
+    fetchTrending();
+    fetchLatest();
   }, []);
 
   return (

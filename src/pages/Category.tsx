@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import AdSpace from '../components/AdSpace';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { supabase, mapNoticia } from '../lib/supabase';
 
 export default function Category() {
   const { category } = useParams<{ category: string }>();
@@ -14,14 +15,31 @@ export default function Category() {
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
-    fetch(`/api/posts?category=${encodeURIComponent(category || '')}&limit=10&offset=${(page - 1) * 10}`)
-      .then(res => res.json())
-      .then(data => {
-        setPosts(data.posts);
-        setTotal(data.total);
+    const fetchCategoryPosts = async () => {
+      setLoading(true);
+      try {
+        const from = (page - 1) * 10;
+        const to = from + 9;
+
+        const { data, error, count } = await supabase
+          .from('noticias')
+          .select('*', { count: 'exact' })
+          .eq('categoria', category)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+        
+        if (data) {
+          setPosts(data.map(mapNoticia));
+          setTotal(count || 0);
+        }
+      } catch (err) {
+        console.error('Error fetching category posts:', err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchCategoryPosts();
   }, [category, page]);
 
   return (

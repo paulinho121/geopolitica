@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import AdSpace from '../components/AdSpace';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { supabase, mapNoticia } from '../lib/supabase';
 
 export default function Search() {
   const [searchParams] = useSearchParams();
@@ -22,14 +23,32 @@ export default function Search() {
       return;
     }
 
-    setLoading(true);
-    fetch(`/api/posts?search=${encodeURIComponent(query)}&limit=10&offset=${(page - 1) * 10}`)
-      .then(res => res.json())
-      .then(data => {
-        setPosts(data.posts);
-        setTotal(data.total);
+    const fetchSearchResults = async () => {
+      setLoading(true);
+      try {
+        const from = (page - 1) * 10;
+        const to = from + 9;
+
+        // Using select with count and text search (assuming the index search view exists or using ilike)
+        const { data, error, count } = await supabase
+          .from('noticias')
+          .select('*', { count: 'exact' })
+          .or(`titulo.ilike.%${query}%,conteudo_html.ilike.%${query}%`)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+        
+        if (data) {
+          setPosts(data.map(mapNoticia));
+          setTotal(count || 0);
+        }
+      } catch (err) {
+        console.error('Error fetching search results:', err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchSearchResults();
   }, [query, page]);
 
   return (

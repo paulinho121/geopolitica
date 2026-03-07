@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import { Facebook, Twitter, MessageCircle, Send, Share2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import AdSpace from '../components/AdSpace';
+import { supabase, mapNoticia } from '../lib/supabase';
 
 export default function Post() {
   const { slug } = useParams<{ slug: string }>();
@@ -14,25 +15,39 @@ export default function Post() {
   const [related, setRelated] = useState<any[]>([]);
 
   useEffect(() => {
-    setLoading(true);
-    fetch(`/api/posts/${slug}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Post not found');
-        return res.json();
-      })
-      .then(data => {
-        setPost(data);
-        setLoading(false);
+    const fetchPost = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('noticias')
+          .select('*')
+          .eq('slug', slug)
+          .single();
+        
+        if (error || !data) throw new Error('Post not found');
+        
+        const mapped = mapNoticia(data);
+        setPost(mapped);
+        
         // Fetch related posts
-        fetch(`/api/posts?category=${encodeURIComponent(data.category)}&limit=3`)
-          .then(res => res.json())
-          .then(relatedData => {
-            setRelated(relatedData.posts.filter((p: any) => p.id !== data.id).slice(0, 3));
-          });
-      })
-      .catch(() => {
+        const { data: relatedData } = await supabase
+          .from('noticias')
+          .select('*')
+          .eq('categoria', data.categoria)
+          .neq('id', data.id)
+          .limit(3);
+        
+        if (relatedData) {
+          setRelated(relatedData.map(mapNoticia));
+        }
+      } catch (err) {
+        console.error('Error fetching post from Supabase:', err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchPost();
   }, [slug]);
 
   if (loading) {
