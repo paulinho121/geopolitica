@@ -60,14 +60,22 @@ export default function Admin() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-Webhook-Secret': 'GP_SECURE_KEY_7788' // Default secret used in our implementation
+          'X-Webhook-Secret': 'GP_SECURE_KEY_7788'
         },
         body: JSON.stringify(payload)
       });
 
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Servidor retornou erro inesperado (HTML/Texto). Verifique se o backend está rodando.`);
+      }
+
+      const responseData = await res.json();
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Falha na conexão');
+        throw new Error(responseData.error || 'Falha na conexão');
       }
 
       setMessage({ type: 'success', text: 'Conexão confirmada! Notícia de teste inserida com sucesso.' });

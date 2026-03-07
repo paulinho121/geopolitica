@@ -187,10 +187,12 @@ app.get('/api/tags', (req, res) => {
 
 // New Webhook for Automatic Content
 app.post('/api/webhook-news', (req, res) => {
+  console.log('Receiving webhook-news request...');
   const webhookSecret = req.headers['x-webhook-secret'];
-  const validSecret = process.env.WEBHOOK_SECRET || 'GLOBAL_PULSE_SECRET_2024';
+  const validSecret = process.env.WEBHOOK_SECRET || 'GP_SECURE_KEY_7788';
 
   if (webhookSecret !== validSecret) {
+    console.warn('Webhook Unauthorized: Invalid Secret');
     return res.status(401).json({ error: 'Unauthorized: Invalid Webhook Secret' });
   }
 
