@@ -201,13 +201,32 @@ app.post('/api/webhook-news', (req, res) => {
     return res.status(400).json({ error: 'Invalid event or post data' });
   }
 
-  const { id, title, content, excerpt, slug, image_url, tags, keywords, source_url } = post;
+  const { 
+    id, 
+    title, 
+    rewritten_title,
+    content, 
+    rewritten_content,
+    excerpt, 
+    meta_description,
+    slug, 
+    image_url, 
+    rewritten_image,
+    tags, 
+    keywords, 
+    source_url 
+  } = post;
 
-  if (!title || !content) {
+  const finalTitle = rewritten_title || title;
+  const finalContent = rewritten_content || content;
+  const finalImage = rewritten_image || image_url;
+  const finalSummary = meta_description || excerpt;
+
+  if (!finalTitle || !finalContent) {
     return res.status(400).json({ error: 'Title and content are required' });
   }
 
-  const finalSlug = slug || generateUniqueSlug(title);
+  const finalSlug = slug || generateUniqueSlug(finalTitle);
 
   try {
     const stmt = db.prepare(`
@@ -228,11 +247,11 @@ app.post('/api/webhook-news', (req, res) => {
 
     stmt.run(
       id || null, 
-      title, 
-      content, 
-      excerpt || null, 
+      finalTitle, 
+      finalContent, 
+      finalSummary || null, 
       finalSlug, 
-      image_url || null, 
+      finalImage || null, 
       tags ? (Array.isArray(tags) ? tags.join(', ') : tags) : '',
       keywords ? (Array.isArray(keywords) ? keywords.join(', ') : keywords) : '',
       source_url || null
@@ -339,7 +358,7 @@ app.post('/api/sync-pull', async (req, res) => {
   }
   
   try {
-    const response = await fetch(`${supabaseUrl}/rest/v1/feed_items?status=eq.success&select=*`, {
+    const response = await fetch(`${supabaseUrl}/rest/v1/feed_items?status=eq.success&select=*&order=created_at.desc&limit=50`, {
       method: 'GET',
       headers: {
         'apikey': apiKey,
@@ -357,12 +376,16 @@ app.post('/api/sync-pull', async (req, res) => {
     
     for (const item of items) {
       // Check if already imported by id_externo
-      const existing = db.prepare('SELECT id FROM noticias WHERE id_externo = ?').get(item.id || item.id_externo);
+      const externalId = item.id || item.id_externo;
+      const existing = db.prepare('SELECT id FROM noticias WHERE id_externo = ?').get(externalId);
       
       if (!existing) {
-        const title = item.title || item.titulo;
-        const content = item.content || item.conteudo_html;
+        // Prioritize rewritten fields from LabNews AI
+        const title = item.rewritten_title || item.title || item.titulo;
+        const content = item.rewritten_content || item.content || item.conteudo_html;
         const slug = item.slug || generateUniqueSlug(title);
+        const image = item.rewritten_image || item.image_url || item.url_imagem || null;
+        const summary = item.meta_description || item.excerpt || item.resumo_seo || null;
         
         const stmt = db.prepare(`
           INSERT INTO noticias (
@@ -373,11 +396,11 @@ app.post('/api/sync-pull', async (req, res) => {
         `);
         
         stmt.run(
-          item.id || item.id_externo,
+          externalId,
           title,
-          item.excerpt || item.resumo_seo || null,
+          summary,
           content,
-          item.image_url || item.url_imagem || null,
+          image,
           item.tags ? (Array.isArray(item.tags) ? item.tags.join(', ') : item.tags) : '',
           item.keywords ? (Array.isArray(item.keywords) ? item.keywords.join(', ') : item.keywords) : '',
           item.source_url || item.url_fonte_original || null,

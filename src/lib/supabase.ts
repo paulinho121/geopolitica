@@ -10,12 +10,12 @@ export const mapNoticia = (n: any) => {
   if (!n) return null;
   return {
     ...n,
-    title: n.titulo,
-    subtitle: n.resumo_seo,
-    content: n.conteudo_html,
-    image: n.url_imagem,
-    category: n.categoria,
-    source: n.url_fonte_original,
+    title: n.rewritten_title || n.titulo || n.title,
+    subtitle: n.meta_description || n.resumo_seo || n.subtitle || n.excerpt,
+    content: n.rewritten_content || n.conteudo_html || n.content,
+    image: n.rewritten_image || n.url_imagem || n.image || n.image_url,
+    category: n.categoria || n.category,
+    source: n.url_fonte_original || n.source || n.source_url,
     // Add fallback for created_at if only data_publicacao exists
     created_at: n.created_at || n.data_publicacao
   };

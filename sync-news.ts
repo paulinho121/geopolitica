@@ -34,7 +34,7 @@ async function sync() {
   console.log('Iniciando sincronização manual via API Supabase...');
   
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/feed_items?status=eq.success&select=*`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/feed_items?status=eq.success&select=*&order=created_at.desc&limit=50`, {
       method: 'GET',
       headers: {
         'apikey': SUPABASE_KEY!,
@@ -58,9 +58,12 @@ async function sync() {
       const existing = db.prepare('SELECT id FROM noticias WHERE id_externo = ?').get(externalId);
       
       if (!existing) {
-        const title = item.title || item.titulo;
-        const content = item.content || item.conteudo_html;
+        // Prioritize rewritten fields from LabNews AI
+        const title = item.rewritten_title || item.title || item.titulo;
+        const content = item.rewritten_content || item.content || item.conteudo_html;
         const slug = item.slug || generateUniqueSlug(title);
+        const image = item.rewritten_image || item.image_url || item.url_imagem || null;
+        const summary = item.meta_description || item.excerpt || item.resumo_seo || null;
         
         console.log(`Importando: ${title}`);
         
@@ -75,9 +78,9 @@ async function sync() {
         stmt.run(
           externalId,
           title,
-          item.excerpt || item.resumo_seo || null,
+          summary,
           content,
-          item.image_url || item.url_imagem || null,
+          image,
           Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
           Array.isArray(item.keywords) ? item.keywords.join(', ') : (item.keywords || ''),
           item.source_url || item.url_fonte_original || null,
