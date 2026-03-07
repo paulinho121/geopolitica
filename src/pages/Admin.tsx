@@ -136,10 +136,15 @@ export default function Admin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       });
-      if (!res.ok) throw new Error('Failed to save settings');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.details || `Erro do Servidor (${res.status})`);
+      }
+      
       setMessage({ type: 'success', text: 'Configurações salvas com sucesso!' });
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setMessage({ type: 'error', text: `Erro ao salvar: ${err.message}` });
     } finally {
       setSaving(false);
     }

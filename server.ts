@@ -295,22 +295,27 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/settings', (req, res) => {
   const { webhookUrl, authHeader, autoPublish, publicUrl, incomingWebhookKey, supabaseFunctionUrl } = req.body;
   
-  const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
-  
-  const updateSetting = (key: string, value: any) => {
-    if (value !== undefined) {
-      stmt.run(key, String(value));
-    }
-  };
+  try {
+    const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+    
+    const updateSetting = (key: string, value: any) => {
+      if (value !== undefined) {
+        stmt.run(key, String(value));
+      }
+    };
 
-  updateSetting('webhookUrl', webhookUrl);
-  updateSetting('authHeader', authHeader);
-  updateSetting('autoPublish', autoPublish);
-  updateSetting('publicUrl', publicUrl);
-  updateSetting('incomingWebhookKey', incomingWebhookKey);
-  updateSetting('supabaseFunctionUrl', supabaseFunctionUrl);
+    updateSetting('webhookUrl', webhookUrl);
+    updateSetting('authHeader', authHeader);
+    updateSetting('autoPublish', autoPublish);
+    updateSetting('publicUrl', publicUrl);
+    updateSetting('incomingWebhookKey', incomingWebhookKey);
+    updateSetting('supabaseFunctionUrl', supabaseFunctionUrl);
 
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Save settings error:', error);
+    res.status(500).json({ error: 'Failed to save settings', details: error.message });
+  }
 });
 
 app.delete('/api/posts/:id', (req, res) => {
