@@ -14,6 +14,8 @@ interface ApiSettings {
   webhookUrl: string;
   authHeader: string;
   autoPublish: boolean;
+  publicUrl: string;
+  incomingWebhookKey: string;
 }
 
 export default function Admin() {
@@ -22,18 +24,19 @@ export default function Admin() {
   const [settings, setSettings] = useState<ApiSettings>({
     webhookUrl: '',
     authHeader: '',
-    autoPublish: false
+    autoPublish: false,
+    publicUrl: '',
+    incomingWebhookKey: 'sua-chave-secreta'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
-  const [generatedKey, setGeneratedKey] = useState<string>('sua-chave-secreta');
 
   const handleGenerateKey = () => {
     const array = new Uint8Array(16);
     window.crypto.getRandomValues(array);
     const keyStr = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-    setGeneratedKey(`gpnews_${keyStr}`);
+    setSettings(prev => ({ ...prev, incomingWebhookKey: `gpnews_${keyStr}` }));
   };
 
   useEffect(() => {
@@ -54,7 +57,9 @@ export default function Admin() {
       setSettings({
         webhookUrl: settingsData.webhookUrl || '',
         authHeader: settingsData.authHeader || '',
-        autoPublish: settingsData.autoPublish === true || settingsData.autoPublish === 'true'
+        autoPublish: settingsData.autoPublish === true || settingsData.autoPublish === 'true',
+        publicUrl: settingsData.publicUrl || '',
+        incomingWebhookKey: settingsData.incomingWebhookKey || 'sua-chave-secreta'
       });
     } catch (err) {
       console.error('Failed to fetch data', err);
@@ -206,7 +211,15 @@ export default function Admin() {
 
           {activeTab === 'settings' && (
             <div className="max-w-3xl mx-auto">
-              <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
+              {message && (
+                <div className={`mb-6 p-4 rounded-md ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                  {message.text}
+                </div>
+              )}
+              
+              <form onSubmit={handleSaveSettings} className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
+                
+                {/* 1. Integração Externa (Entrada) */}
                 <div className="flex items-center gap-3 mb-6">
                   <div className="bg-blue-100 p-3 rounded-lg">
                     <Globe className="w-8 h-8 text-blue-700" />
@@ -219,7 +232,21 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="space-y-8">
+                <div className="space-y-8 mb-12">
+                  <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 relative">
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
+                      Domínio Público do seu Site (Opcional)
+                    </label>
+                    <p className="text-sm text-gray-500 mb-3">Se o seu site está na Vercel, cole o link aqui. Se vazio, usará localhost.</p>
+                    <input
+                      type="text"
+                      placeholder="Ex: https://meusite-news.vercel.app"
+                      value={settings.publicUrl}
+                      onChange={e => setSettings({...settings, publicUrl: e.target.value})}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white p-3 border"
+                    />
+                  </div>
+
                   <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 relative">
                     <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
                       1. Webhook para Notificação (URL)
@@ -228,12 +255,13 @@ export default function Admin() {
                     <div className="flex mt-1 relative">
                       <input
                         readOnly
-                        value={`${window.location.origin}/api/webhook`}
+                        value={`${settings.publicUrl || window.location.origin}/api/webhook`}
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white p-3 font-mono text-blue-700 font-medium"
                       />
                       <button
+                        type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(`${window.location.origin}/api/webhook`);
+                          navigator.clipboard.writeText(`${settings.publicUrl || window.location.origin}/api/webhook`);
                           alert('URL do Webhook copiada!');
                         }}
                         className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -252,54 +280,102 @@ export default function Admin() {
                       <div className="flex-1">
                         <input
                           readOnly
-                          value={`X-API-Key: ${generatedKey}`}
+                          value={`X-API-Key: ${settings.incomingWebhookKey}`}
                           className="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm bg-white p-3 font-mono text-green-700 font-medium border focus:border-blue-500 focus:ring-blue-500"
                         />
                       </div>
                       <button
+                        type="button"
                         onClick={handleGenerateKey}
                         className="inline-flex items-center justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        title="Gerar uma nova chave aleatória mais segura"
+                        title="Gerar uma nova chave"
                       >
                         <RefreshCcw className="w-4 h-4 mr-2" />
-                        Gerar Segura
+                        Nova Chave
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(`X-API-Key: ${generatedKey}`);
-                          alert('Chave de API copiada! Lembre-se de adicionar ' + generatedKey + ' nas configurações do Vercel.');
+                          navigator.clipboard.writeText(`X-API-Key: ${settings.incomingWebhookKey}`);
+                          alert('Chave copiada!');
                         }}
-                        className="inline-flex justify-center py-2 px-4 shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="inline-flex justify-center py-2 px-4 shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                       >
                         Copiar
                       </button>
                     </div>
-                    
-                    {generatedKey !== 'sua-chave-secreta' && (
+                    {settings.incomingWebhookKey !== 'sua-chave-secreta' && (
                       <div className="mt-4 p-4 bg-yellow-50 text-yellow-800 text-sm rounded-md border border-yellow-200">
-                        <strong>⚠️ Aviso Importante:</strong> Como você gerou uma chave personalizada mais segura, o seu servidor precisa saber dela! Vá no painel do <strong>Vercel</strong> (Settings &gt; Environment Variables) e crie uma variável exatamente assim:
+                        <strong>⚠️ Aviso Importante:</strong> Salve as configurações no final da página, e não se esqueça de ir no painel do <strong>Vercel</strong> (Settings &gt; Environment Variables) e criar a variável:
                         <div className="mt-2 bg-white p-3 rounded border border-yellow-300 font-mono text-xs">
                           Name: <strong>WEBHOOK_API_KEY</strong> <br/>
-                          Value: <strong>{generatedKey}</strong>
+                          Value: <strong>{settings.incomingWebhookKey}</strong>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-8 bg-blue-50 p-6 rounded-lg text-sm text-blue-800 border border-blue-100">
-                  <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-                    <RefreshCcw className="w-5 h-5" />
-                    Como funciona?
-                  </h3>
-                  <p className="mb-2">A plataforma de postagem automatizada (Ex: Labnews/Vercel) precisa saber <strong>onde aplicar o texto gerado</strong> e provar que <strong>tem permissão</strong> para isso.</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Sempre que uma inteligência artificial terminar de escrever um texto, ela chamará sua URL acima.</li>
-                    <li>O seu site filtrará a chamada checando se ela contém exatamente <code>X-API-Key: sua-chave-secreta</code>.</li>
-                    <li>Se sim, seu site cria a postagem instantaneamente no banco de dados. Se não, a tentativa é classificada como bloqueada.</li>
-                  </ul>
+                {/* 2. Sincronização Outbound */}
+                <div className="flex items-center gap-3 mb-6 pt-6 border-t border-gray-100">
+                  <div className="bg-purple-100 p-3 rounded-lg">
+                    <ExternalLink className="w-8 h-8 text-purple-700" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Enviar para Plataforma Externa</h2>
+                    <p className="text-gray-500 mt-1">
+                      Configure para onde enviar as notícias publicadas localmente.
+                    </p>
+                  </div>
                 </div>
-              </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">URL de Destino (Webhook URL)</label>
+                    <input
+                      type="url"
+                      placeholder="https://api.siteexterno.com/v1/posts"
+                      value={settings.webhookUrl}
+                      onChange={e => setSettings({...settings, webhookUrl: e.target.value})}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 p-3 border"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cabeçalho de Autenticação (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Authorization: Bearer seu-token-aqui"
+                      value={settings.authHeader}
+                      onChange={e => setSettings({...settings, authHeader: e.target.value})}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 p-3 border font-mono text-sm"
+                    />
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      id="autoPublish"
+                      type="checkbox"
+                      checked={settings.autoPublish}
+                      onChange={e => setSettings({...settings, autoPublish: e.target.checked})}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="autoPublish" className="ml-2 block text-sm text-gray-900">
+                      Publicar automaticamente em plataforma externa ao criar nova notícia
+                    </label>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
+                  >
+                    {saving ? 'Salvando...' : 'Salvar Todas as Configurações'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>

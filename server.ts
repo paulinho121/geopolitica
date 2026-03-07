@@ -129,10 +129,15 @@ app.get('/api/tags', (req, res) => {
 
 // Webhook endpoint
 app.post('/api/webhook', (req, res) => {
-  const apiKey = req.headers['x-api-key'];
-  const validApiKey = process.env.WEBHOOK_API_KEY || 'sua-chave-secreta';
+  const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
   
-  if (apiKey !== validApiKey) {
+  // Try to get from database first, then process.env, then default fallback
+  const dbKeyRow = db.prepare("SELECT value FROM settings WHERE key = 'incomingWebhookKey'").get() as any;
+  const validApiKey = (dbKeyRow && dbKeyRow.value) 
+      ? dbKeyRow.value 
+      : (process.env.WEBHOOK_API_KEY || 'sua-chave-secreta');
+  
+  if (apiKey !== validApiKey && apiKey !== `Bearer ${validApiKey}`) {
     return res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
   }
   
@@ -208,7 +213,7 @@ app.get('/api/settings', (req, res) => {
 });
 
 app.post('/api/settings', (req, res) => {
-  const { webhookUrl, authHeader, autoPublish } = req.body;
+  const { webhookUrl, authHeader, autoPublish, publicUrl, incomingWebhookKey } = req.body;
   
   const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
   
@@ -221,6 +226,8 @@ app.post('/api/settings', (req, res) => {
   updateSetting('webhookUrl', webhookUrl);
   updateSetting('authHeader', authHeader);
   updateSetting('autoPublish', autoPublish);
+  updateSetting('publicUrl', publicUrl);
+  updateSetting('incomingWebhookKey', incomingWebhookKey);
 
   res.json({ success: true });
 });

@@ -33,10 +33,10 @@ export default async function handler(req: any, res: any) {
   }
 
   // Verifica a chave de segurança
-  const apiKey = req.headers['x-api-key'];
-  const validApiKey = process.env.WEBHOOK_API_KEY || 'sua-chave-secreta';
+  const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
+  let validApiKey = process.env.WEBHOOK_API_KEY || 'sua-chave-secreta';
   
-  if (apiKey !== validApiKey) {
+  if (apiKey !== validApiKey && apiKey !== `Bearer ${validApiKey}`) {
     return res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
   }
 
