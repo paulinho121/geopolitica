@@ -16,6 +16,7 @@ interface ApiSettings {
   autoPublish: boolean;
   publicUrl: string;
   incomingWebhookKey: string;
+  supabaseFunctionUrl?: string;
 }
 
 export default function Admin() {
@@ -26,7 +27,8 @@ export default function Admin() {
     authHeader: '',
     autoPublish: false,
     publicUrl: '',
-    incomingWebhookKey: 'sua-chave-secreta'
+    incomingWebhookKey: 'sua-chave-secreta',
+    supabaseFunctionUrl: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -114,7 +116,8 @@ export default function Admin() {
         authHeader: settingsData.authHeader || '',
         autoPublish: settingsData.autoPublish === true || settingsData.autoPublish === 'true',
         publicUrl: settingsData.publicUrl || '',
-        incomingWebhookKey: settingsData.incomingWebhookKey || 'sua-chave-secreta'
+        incomingWebhookKey: settingsData.incomingWebhookKey || 'sua-chave-secreta',
+        supabaseFunctionUrl: settingsData.supabaseFunctionUrl || ''
       });
     } catch (err) {
       console.error('Failed to fetch data', err);
@@ -288,6 +291,20 @@ export default function Admin() {
                 </div>
 
                 <div className="space-y-8 mb-12">
+                  <div className="bg-blue-50 p-6 rounded-lg border border-blue-100 relative">
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
+                       Link da sua Função Supabase (Edge Function)
+                    </label>
+                    <p className="text-sm text-blue-800 mb-3">Cole aqui a URL da função que você criou no Supabase (ex: https://.../webhook-news)</p>
+                    <input
+                      type="text"
+                      placeholder="https://qxaqlqivyeahadjtauvo.supabase.co/functions/v1/webhook-news"
+                      value={settings.supabaseFunctionUrl}
+                      onChange={e => setSettings({...settings, supabaseFunctionUrl: e.target.value})}
+                      className="block w-full rounded-md border-blue-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white p-3 border"
+                    />
+                  </div>
+
                   <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 relative">
                     <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
                       Domínio Público do seu Site (Opcional)
@@ -310,13 +327,14 @@ export default function Admin() {
                     <div className="flex mt-1 relative">
                       <input
                         readOnly
-                        value={`${settings.publicUrl || window.location.origin}/api/webhook`}
+                        value={settings.supabaseFunctionUrl || `${settings.publicUrl || window.location.origin}/api/webhook-news`}
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white p-3 font-mono text-blue-700 font-medium"
                       />
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(`${settings.publicUrl || window.location.origin}/api/webhook`);
+                          const url = settings.supabaseFunctionUrl || `${settings.publicUrl || window.location.origin}/api/webhook-news`;
+                          navigator.clipboard.writeText(url);
                           alert('URL do Webhook copiada!');
                         }}
                         className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
