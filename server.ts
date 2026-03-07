@@ -293,7 +293,7 @@ app.get('/api/settings', (req, res) => {
 });
 
 app.post('/api/settings', (req, res) => {
-  const { webhookUrl, authHeader, autoPublish, publicUrl, incomingWebhookKey } = req.body;
+  const { webhookUrl, authHeader, autoPublish, publicUrl, incomingWebhookKey, supabaseFunctionUrl } = req.body;
   
   const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
   
@@ -308,6 +308,7 @@ app.post('/api/settings', (req, res) => {
   updateSetting('autoPublish', autoPublish);
   updateSetting('publicUrl', publicUrl);
   updateSetting('incomingWebhookKey', incomingWebhookKey);
+  updateSetting('supabaseFunctionUrl', supabaseFunctionUrl);
 
   res.json({ success: true });
 });
