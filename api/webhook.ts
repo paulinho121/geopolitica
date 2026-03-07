@@ -27,9 +27,14 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  // Apenas aceita POST
+  // Se for GET, retorna uma mensagem amigável para testes de navegador
+  if (req.method === 'GET') {
+    return res.status(200).json({ status: 'A API de Webhook está online e aguardando requisições POST com a chave de API.' });
+  }
+
+  // Apenas aceita POST para inserção
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    return res.status(405).json({ error: 'Method Not Allowed. Use POST para enviar dados.' });
   }
 
   // Verifica a chave de segurança

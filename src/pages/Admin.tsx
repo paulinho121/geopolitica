@@ -31,6 +31,53 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  const handleTestWebhook = async () => {
+    setTesting(true);
+    setMessage(null);
+    try {
+      // Use the public URL if provided, otherwise fallback to current origin
+      const baseUrl = settings.publicUrl || window.location.origin;
+      // The new endpoint we created in server.ts
+      const testUrl = `${baseUrl}/api/webhook-news`;
+      
+      const payload = {
+        event: "post_created",
+        post: {
+          id: `test-${Date.now()}`,
+          title: "Notícia de Teste (IA)",
+          content: "<p>Esta é uma notícia enviada automaticamente para testar a conexão do seu site com o Supabase/IA.</p>",
+          excerpt: "Resumo do teste de conexão.",
+          image_url: "https://picsum.photos/seed/test/1200/600",
+          tags: ["teste", "conexao"],
+          keywords: ["ia", "automatico"],
+          source_url: "https://google.com"
+        }
+      };
+
+      const res = await fetch(testUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': 'GP_SECURE_KEY_7788' // Default secret used in our implementation
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Falha na conexão');
+      }
+
+      setMessage({ type: 'success', text: 'Conexão confirmada! Notícia de teste inserida com sucesso.' });
+      fetchData(); // Refresh list
+    } catch (err: any) {
+      setMessage({ type: 'error', text: `Erro de conexão: ${err.message}` });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleGenerateKey = () => {
     const array = new Uint8Array(16);
@@ -273,47 +320,78 @@ export default function Admin() {
 
                   <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 relative">
                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      <Key className="w-4 h-4" /> 2. Header de Autenticação (Chave de API)
+                       <Key className="w-4 h-4" /> 2. Header de Autenticação (Chave de API)
                     </label>
                     <p className="text-sm text-gray-500 mb-3">Copie esse texto exato e cole na plataforma externa para autorizar as postagens no seu site.</p>
                     <div className="flex mt-1 relative items-center gap-3">
                       <div className="flex-1">
                         <input
                           readOnly
-                          value={`X-API-Key: ${settings.incomingWebhookKey}`}
+                          value={`X-Webhook-Secret: GP_SECURE_KEY_7788`}
                           className="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm bg-white p-3 font-mono text-green-700 font-medium border focus:border-blue-500 focus:ring-blue-500"
                         />
                       </div>
                       <button
                         type="button"
-                        onClick={handleGenerateKey}
-                        className="inline-flex items-center justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        title="Gerar uma nova chave"
-                      >
-                        <RefreshCcw className="w-4 h-4 mr-2" />
-                        Nova Chave
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(`X-API-Key: ${settings.incomingWebhookKey}`);
-                          alert('Chave copiada!');
+                          navigator.clipboard.writeText(`X-Webhook-Secret: GP_SECURE_KEY_7788`);
+                          alert('Chave secreta copiada!');
                         }}
                         className="inline-flex justify-center py-2 px-4 shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                       >
                         Copiar
                       </button>
                     </div>
-                    {settings.incomingWebhookKey !== 'sua-chave-secreta' && (
-                      <div className="mt-4 p-4 bg-yellow-50 text-yellow-800 text-sm rounded-md border border-yellow-200">
-                        <strong>⚠️ Aviso Importante:</strong> Salve as configurações no final da página, e não se esqueça de ir no painel do <strong>Vercel</strong> (Settings &gt; Environment Variables) e criar a variável:
-                        <div className="mt-2 bg-white p-3 rounded border border-yellow-300 font-mono text-xs">
-                          Name: <strong>WEBHOOK_API_KEY</strong> <br/>
-                          Value: <strong>{settings.incomingWebhookKey}</strong>
-                        </div>
-                      </div>
-                    )}
                   </div>
+
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={handleTestWebhook}
+                      disabled={testing}
+                      className="flex-1 flex justify-center items-center gap-2 py-3 px-4 border border-blue-200 rounded-md shadow-sm text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      {testing ? <RefreshCcw className="w-4 h-4 animate-spin" /> : '🚀 Testar Conexão com IA (Simular Post)'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 1.1 Sincronização Manual (Pull) */}
+                <div className="bg-orange-50 p-6 rounded-lg border border-orange-100 mb-12">
+                   <h3 className="text-lg font-bold text-orange-900 mb-2 flex items-center gap-2">
+                     <RefreshCcw className="w-5 h-5" /> Sincronização Manual (Pull)
+                   </h3>
+                   <p className="text-sm text-orange-800 mb-4">
+                     Se alguma notícia falhou no Webhook, você pode puxar manualmente do Supabase.
+                   </p>
+                   <button
+                     type="button"
+                     onClick={async () => {
+                       if (!settings.publicUrl && !confirm('Você não definiu uma URL Pública. Deseja tentar sincronizar localmente?')) return;
+                       setLoading(true);
+                       try {
+                         const res = await fetch('/api/sync-pull', {
+                           method: 'POST',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify({
+                             supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+                             apiKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                             jwtToken: import.meta.env.VITE_SUPABASE_ANON_KEY // Using anon key as token for simplicity just like in sync-news.ts
+                           })
+                         });
+                         const data = await res.json();
+                         alert(`Sincronização concluída! ${data.imported || 0} novas notícias importadas.`);
+                         fetchData();
+                       } catch (e: any) {
+                         alert('Erro: ' + e.message);
+                       } finally {
+                         setLoading(false);
+                       }
+                     }}
+                     className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded font-bold transition-colors"
+                   >
+                     Buscar Novas Notícias Agora
+                   </button>
                 </div>
 
                 {/* 2. Sincronização Outbound */}
